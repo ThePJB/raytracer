@@ -18,6 +18,11 @@ inline vec3 sub(vec3 x, vec3 y) {
     return x;
 }
 
-void print_vec(vec3 a) {
-    printf("[%f %f %f]", a.x, a.y, a.z);
+inline vec3 make_unit(vec3 x) {
+    cblas_dscal(3, 1/cblas_dnrm2(3, (double *)&x, 1), (double *)&x, 1);
+    return x;
+}
+
+void vec_str(char* buf, vec3 a) {
+    sprintf(buf, "[%f %f %f]", a.x, a.y, a.z);
 }
