@@ -1,1 +1,1 @@
-gcc main.c write_image.c -lpng -o raytracer.exe
+gcc main.c write_image.c vec.c -lopenblas -lpng -o raytracer.exe
