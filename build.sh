@@ -1,0 +1,1 @@
+gcc main.c write_image.c -lpng -o raytracer.exe
