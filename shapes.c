@@ -21,14 +21,34 @@ int ray_intersects_object(vec3 *normal, vec3 *position, double *dist, ray ray, o
             double t0 = tca - thc;
             double t1 = tca + thc;
             
+            if (t0 > t1) {
+                double tmp = t1;
+                t1 = t0;
+                t0 = tmp;
+            }
+
+            if (t0 < 0) {
+                t0 = t1;
+                if (t0 < 0) {
+                    return 0;
+                }
+            }
+
             *dist = t0;
             *position = axpy(t0, ray.direction, ray.origin);
+            *normal = make_unit(sub(*position, object.sphere.center));
             //*normal = todo
             // o yea chuck it out if its behind us as well, todo
             return 1;
 
         break;
     }
+}
+
+ray ray_reflect(ray incident, vec3 location, vec3 normal) {
+    // reflect a dir about a normal?
+    vec3 reflected_dir = sub(incident.direction, scale(2 * dot(incident.direction, normal), normal));
+    return (ray) {.origin = location, .direction = reflected_dir};
 }
 
 void ray_str(char* buf, ray ray) {
@@ -50,3 +70,4 @@ void object_str(char* buf, object object) {
             sprintf(buf, "Sphere centered at %s, radius %f, colour %s", vsbuf, object.sphere.radius, cbuf);
     }
 }
+

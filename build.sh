@@ -1,1 +1,1 @@
-gcc main.c write_image.c vec.c shapes.c -std=c11 -lopenblas -lpng -o raytracer.exe
+gcc main.c write_image.c vec.c shapes.c scenes.c -std=c11 -lopenblas -lpng -o raytracer.exe

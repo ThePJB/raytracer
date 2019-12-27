@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
     object_type type;
     vec3 colour;
+    double reflectance;
 
     union {
         sphere sphere;
@@ -29,6 +30,6 @@ typedef struct {
 
 void object_str(char* buf, object object);
 int ray_intersects_object(vec3 *normal, vec3 *position, double *dist, ray ray, object object);
+ray ray_reflect(ray incident, vec3 location, vec3 normal);
 void ray_str(char* buf, ray ray);
-
 #endif

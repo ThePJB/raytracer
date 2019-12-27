@@ -23,6 +23,11 @@ inline vec3 make_unit(vec3 x) {
     return x;
 }
 
+inline vec3 scale(double a, vec3 x) {
+    cblas_dscal(3, a, (double *)&x, 1);
+    return x;
+}
+
 void vec_str(char* buf, vec3 a) {
     sprintf(buf, "[%f %f %f]", a.x, a.y, a.z);
 }

@@ -9,6 +9,7 @@
 
 #include "shapes.h"
 #include "vec.h"
+#include "scenes.h"
 
 #include <stdbool.h>
 
@@ -16,21 +17,27 @@
 #include <png.h>
 
 
-// Objects
-// Ray intersects object, where, normal
+// next episode: reflecto ball (materials)
 
-typedef struct {
-    object* objects;
-    int numObjects;
-    vec3 bg_colour;
-} scene;
+// reflect ray seems to work ok?
+// how to check that my sphere normals are correctus?
+// render normal map of collisions where rgb = xyz
+
+
 
 const int MAX_DEPTH = 15;
 
 // returns the colour it sees
 vec3 cast_ray(scene* scene, ray r, int depth) {
+    if (depth > MAX_DEPTH) {
+        return (vec3) {1, 1, 1};
+    }
+
     int closest = -1;
     double closest_dist = 1.0/0.0;
+    vec3 closest_normal;
+    vec3 closest_position;
+
     for (int i = 0; i < scene->numObjects; i++) {
         double distance;
         vec3 normal;
@@ -39,12 +46,20 @@ vec3 cast_ray(scene* scene, ray r, int depth) {
             if (distance < closest_dist) {
                 closest = i;
                 closest_dist = distance;
+                closest_normal = normal;
+                closest_position = position;
             }
         }
     }
 
     if (closest == -1) {
         return scene->bg_colour;
+    }
+    return scale(0.5,axpy(1, closest_normal, (vec3) {1,1,1})); // normal map
+
+    if (scene->objects[closest].reflectance > 0) {
+        ray reflected_ray = ray_reflect(r, closest_position, closest_normal);
+        return cast_ray(scene, reflected_ray, depth+1);
     }
     return scene->objects[closest].colour;
 }
@@ -62,7 +77,7 @@ void render_scene(vec3* image, scene* scene, int w, int h, vec3 camera_pos, vec3
 
     object_str(sstr, scene->objects[0]);
 
-    printf("Rendering scene, campos %s, camdir %s, focal len %f, contains sphere %s\n", campos, camdir, focal_length, sstr);
+    //printf("Rendering scene, campos %s, camdir %s, focal len %f, contains sphere %s\n", campos, camdir, focal_length, sstr);
     
     // this is kinda 1 pixel offset but you wouldnt really be able to tell at higher resolutions lol
     int i = 0;
@@ -108,46 +123,9 @@ int main(int argc, char **argv) {
 
     object objs[4];
 
-    objs[0] = (object) {
-        .colour = (vec3) {0.0, 1.0, 0.0},
-        .type = SPHERE,
-        .sphere = (sphere) {
-            .center = (vec3) {0,0,5.0},
-            .radius = 1,
-        }
-    };
+    scene scene;
+    bigger_test(&scene);
 
-    objs[1] = (object) {
-        .colour = (vec3) {0.7, 0.7, 0.2},
-        .type = SPHERE,
-        .sphere = (sphere) {
-            .center = (vec3) {-1,0.2,5.4},
-            .radius = 1.1,
-        }
-    };
-
-    objs[2] = (object) {
-        .colour = (vec3) {0.2, 0.2, 0.2},
-        .type = SPHERE,
-        .sphere = (sphere) {
-            .center = (vec3) {1,0.7,4.7},
-            .radius = 0.9,
-        }
-    };
-
-    objs[3] = (object) {
-        .colour = (vec3) {1, 0.2, 0.2},
-        .type = SPHERE,
-        .sphere = (sphere) {
-            .center = (vec3) {0.9,-0.2,4.7},
-            .radius = 0.5,
-        }
-    };
-
-    scene scene = {
-        .numObjects = 4,
-        .objects =  objs,
-        .bg_colour = (vec3) {0.5, 0.0, 0.5}};
     render_scene(image, &scene, w,h,cam_pos,cam_dir, focal_length);
     pixel pimage[w*h];
 
