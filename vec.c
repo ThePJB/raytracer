@@ -28,6 +28,11 @@ inline vec3 scale(double a, vec3 x) {
     return x;
 }
 
+inline vec3 proj(vec3 x, vec3 y) {
+    double a = dot(x,y) / dot(x,x);
+    return scale(a, x);
+}
+
 void vec_str(char* buf, vec3 a) {
     sprintf(buf, "[%f %f %f]", a.x, a.y, a.z);
 }

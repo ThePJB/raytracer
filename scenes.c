@@ -11,7 +11,7 @@ void reflecto_test(scene* scene) {
                 .colour = (vec3) {0.0, 1.0, 0.0},
         .type = SPHERE,
         .sphere = (sphere) {
-            .center = (vec3) {-1,0,5},
+            .center = (vec3) {0,-3,0},
             .radius = 1,
         }
     };
@@ -21,7 +21,7 @@ void reflecto_test(scene* scene) {
         .type = SPHERE,
         .reflectance=1,
         .sphere = (sphere) {
-            .center = (vec3) {1,0, 6},
+            .center = (vec3) {0,3, 0},
             .radius = 1,
         }
     };
@@ -32,7 +32,7 @@ void reflecto_test(scene* scene) {
 }
 
 void bigger_test(scene* scene) {
-    int numObjects = 4;
+    int numObjects = 5;
     object* objects = calloc(numObjects, sizeof(object));
 
     objects[0] = (object) {
@@ -47,9 +47,9 @@ void bigger_test(scene* scene) {
     objects[1] = (object) {
         .colour = (vec3) {0.7, 0.7, 0.2},
         .type = SPHERE,
-        .reflectance=1,
+        .reflectance=0,
         .sphere = (sphere) {
-            .center = (vec3) {1,0, 6},
+            .center = (vec3) {1,0.5, 6},
             .radius = 1,
         }
     };
@@ -69,6 +69,16 @@ void bigger_test(scene* scene) {
         .sphere = (sphere) {
             .center = (vec3) {-1,0, 3},
             .radius = 0.4,
+        }
+    };
+
+    objects[4] = (object) {
+        .colour = (vec3) {0,0,1},
+        .type = PLANE,
+        //.reflectance=1,
+        .plane = (plane) {
+            .center = (vec3) {0, 16, 0},
+            .normal = (vec3) {0, -1, 0},
         }
     };
 

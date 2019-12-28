@@ -17,12 +17,37 @@
 #include <png.h>
 
 
-// next episode: reflecto ball (materials)
+// bugs:
+// reflective plane always reflects itself?
+// reflective plane weird reflections on the horizon
+// from directly above normal plane is cooked
 
-// reflect ray seems to work ok?
-// how to check that my sphere normals are correctus?
-// render normal map of collisions where rgb = xyz
+// view plane adds x and y but it should actually be adding orthogonal vectors
 
+// features:
+// multiple cameras
+// generate camera looking at something
+
+
+
+typedef struct {
+    vec3 pos;
+    vec3 dir;
+    double aov_horz;
+    double aov_vert;
+} camera;
+
+// todo maybe roll
+
+
+camera new_camera(double x,double y,double z, double u, double v, double w, double ah, double av) {
+    return (camera) {
+        .pos = (vec3) {.x = x, .y = y, .z = z},
+        .dir = make_unit((vec3) {.x = u, .y = v, .z = w}),
+        .aov_horz = ah,
+        .aov_vert = av,
+    };
+}
 
 
 const int MAX_DEPTH = 15;
@@ -55,7 +80,9 @@ vec3 cast_ray(scene* scene, ray r, int depth) {
     if (closest == -1) {
         return scene->bg_colour;
     }
-    return scale(0.5,axpy(1, closest_normal, (vec3) {1,1,1})); // normal map
+    vec3 normal_colour =  scale(0.5,axpy(1, closest_normal, (vec3) {1,1,1}));
+
+    //return normal_colour; // normal map
 
     if (scene->objects[closest].reflectance > 0) {
         ray reflected_ray = ray_reflect(r, closest_position, closest_normal);
@@ -64,25 +91,37 @@ vec3 cast_ray(scene* scene, ray r, int depth) {
     return scene->objects[closest].colour;
 }
 
-void render_scene(vec3* image, scene* scene, int w, int h, vec3 camera_pos, vec3 camera_dir, double focal_length) {
-    vec3 view_plane_pos = axpy(focal_length, camera_dir, camera_pos);
+void render_scene(vec3* image, scene* scene, int w, int h, camera cam) {
+
+    // first relationship between angle and
+    
+
+    vec3 view_plane_pos = axpy(1, cam.dir, cam.pos);
 
     // now get direction from camera_pos to all of the imaginary pixels on the view plane
     char campos[128];
     char camdir[128];
     char sstr[128];
 
-    vec_str(campos, camera_pos);
-    vec_str(camdir, camera_dir);
+    vec_str(campos, cam.pos);
+    vec_str(camdir, cam.dir);
 
     object_str(sstr, scene->objects[0]);
 
     //printf("Rendering scene, campos %s, camdir %s, focal len %f, contains sphere %s\n", campos, camdir, focal_length, sstr);
     
     // this is kinda 1 pixel offset but you wouldnt really be able to tell at higher resolutions lol
+    
+    // find these with gram schmidt??
+    // or do some cross product shit?
+    // transformation required to get that direction vector, then apply it to x and y as well
+    vec3 u,v;
+
+
+
     int i = 0;
-    for (int x = 0; x < w; x++) {
-        for (int y = 0; y < h; y++) {
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
 
             double xo = -0.5 + ((double)x/(double)w);
             double yo = -0.5 + ((double)y/(double)h);
@@ -91,11 +130,11 @@ void render_scene(vec3* image, scene* scene, int w, int h, vec3 camera_pos, vec3
             v.x += xo;
             v.y += yo;
             
-            vec3 dir = sub(v,camera_pos);
+            vec3 dir = sub(v,cam.pos);
 
             dir = make_unit(dir);
 
-            ray ray = {.origin = camera_pos, .direction = dir};
+            ray ray = {.origin = cam.pos, .direction = dir};
             image[i] = cast_ray(scene, ray, 0);
             
             char buf[128];
@@ -117,16 +156,16 @@ int main(int argc, char **argv) {
 
     vec3 image[w*h];
 
-    double focal_length = 2;
-    vec3 cam_pos = {0, 0, -1*focal_length};
-    vec3 cam_dir = {0,0,1};
+    camera straight = new_camera(0,0,-5,0,0,1,0.5);
+    camera overhead = new_camera(0,-16,0,0,1,0,0.5);
 
     object objs[4];
 
     scene scene;
-    bigger_test(&scene);
+    //bigger_test(&scene);
+    reflecto_test(&scene);
 
-    render_scene(image, &scene, w,h,cam_pos,cam_dir, focal_length);
+    render_scene(image, &scene, w,h, overhead);
     pixel pimage[w*h];
 
     for (int i = 0; i < w*h; i++) {

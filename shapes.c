@@ -8,6 +8,8 @@ int ray_intersects_object(vec3 *normal, vec3 *position, double *dist, ray ray, o
     vec3 L;
     double tca;
 
+    double denom;
+
     switch (object.type) {
 
         case SPHERE:
@@ -41,7 +43,22 @@ int ray_intersects_object(vec3 *normal, vec3 *position, double *dist, ray ray, o
             // o yea chuck it out if its behind us as well, todo
             return 1;
 
-        break;
+            break; 
+
+        case PLANE:
+            denom = dot(object.plane.normal, ray.direction);
+            if (denom > 0) {
+            //if (denom > 1e-6) {
+                vec3 p0l0 = sub(object.plane.center, ray.origin);
+                double t = dot(p0l0, object.plane.normal) / denom;
+                *dist = t;
+                *position = p0l0;
+                *normal = object.plane.normal;
+                return (t >= 0);
+
+                // so a square would have the same but you would clamp x and y of p-p0l0
+            }
+
     }
 }
 
@@ -60,14 +77,22 @@ void ray_str(char* buf, ray ray) {
 }
 
 void object_str(char* buf, object object) {
-    char vsbuf[64];
-    char cbuf[64];
+    char buf1[64];
+    char buf2[64];
+    char buf3[64];
 
     switch (object.type) {
         case SPHERE:
-            vec_str(vsbuf, object.sphere.center);
-            vec_str(cbuf, object.colour);
-            sprintf(buf, "Sphere centered at %s, radius %f, colour %s", vsbuf, object.sphere.radius, cbuf);
+            vec_str(buf1, object.sphere.center);
+            vec_str(buf2, object.colour);
+            sprintf(buf, "Sphere centered at %s, radius %f, colour %s", buf1, object.sphere.radius, buf2);
+            break;
+        case PLANE:
+            vec_str(buf1, object.plane.center);
+            vec_str(buf2, object.plane.normal);
+            vec_str(buf3, object.colour);
+            sprintf(buf, "Plane centered at %s with normal %s, colour %s", buf1, buf2, buf3);
+            break;
     }
 }
 

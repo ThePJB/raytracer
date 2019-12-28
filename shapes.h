@@ -5,6 +5,7 @@
 
 typedef enum {
     SPHERE,
+    PLANE,
     NUM_OBJECT_TYPES,
 } object_type;
 
@@ -18,12 +19,18 @@ typedef struct {
 } sphere;
 
 typedef struct {
+    vec3 center;
+    vec3 normal;
+} plane;
+
+typedef struct {
     object_type type;
     vec3 colour;
     double reflectance;
 
     union {
         sphere sphere;
+        plane plane;
     };
 
 } object;
