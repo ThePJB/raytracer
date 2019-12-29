@@ -16,6 +16,8 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
+#define M_PI 3.14159265358979323846
+#define DEG_TO_RAD 0.01745329251994329577
 
 // bugs:
 // reflective plane always reflects itself?
@@ -82,7 +84,7 @@ vec3 cast_ray(scene* scene, ray r, int depth) {
     }
     vec3 normal_colour =  scale(0.5,axpy(1, closest_normal, (vec3) {1,1,1}));
 
-    //return normal_colour; // normal map
+    return normal_colour; // normal map
 
     if (scene->objects[closest].reflectance > 0) {
         ray reflected_ray = ray_reflect(r, closest_position, closest_normal);
@@ -94,9 +96,15 @@ vec3 cast_ray(scene* scene, ray r, int depth) {
 void render_scene(vec3* image, scene* scene, int w, int h, camera cam) {
 
     // first relationship between angle and
-    
+    double wrange, hrange;
 
-    vec3 view_plane_pos = axpy(1, cam.dir, cam.pos);
+    wrange = 2 * tan(DEG_TO_RAD * cam.aov_horz / 2);
+    hrange = 2 * tan(DEG_TO_RAD * cam.aov_vert / 2);
+
+    double focal_length = 1;
+
+    // angle relationship goes here
+    vec3 view_plane_pos = axpy(focal_length, cam.dir, cam.pos);
 
     // now get direction from camera_pos to all of the imaginary pixels on the view plane
     char campos[128];
@@ -117,21 +125,29 @@ void render_scene(vec3* image, scene* scene, int w, int h, camera cam) {
     // transformation required to get that direction vector, then apply it to x and y as well
     vec3 u,v;
 
+    // what happesn to an axis vector: ok
+    // what happens to a 45 degree guy? +x +z
+    // i think this is legit
 
+    // todo view angles
+
+    u.x = cam.dir.z;
+    u.z = -cam.dir.x;
+
+    v.y = cam.dir.z;
+    v.z = -cam.dir.y;
 
     int i = 0;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-
-            double xo = -0.5 + ((double)x/(double)w);
-            double yo = -0.5 + ((double)y/(double)h);
+            vec3 uo = scale(wrange * (-0.5 + x/(double)w), u);
+            vec3 vo = scale(hrange * (-0.5 + y/(double)h), v);
 
             vec3 v = view_plane_pos;
-            v.x += xo;
-            v.y += yo;
-            
-            vec3 dir = sub(v,cam.pos);
+            v = axpy(1,v, uo);
+            v = axpy(1,v, vo);
 
+            vec3 dir = sub(v, cam.pos);
             dir = make_unit(dir);
 
             ray ray = {.origin = cam.pos, .direction = dir};
@@ -156,8 +172,9 @@ int main(int argc, char **argv) {
 
     vec3 image[w*h];
 
-    camera straight = new_camera(0,0,-5,0,0,1,0.5);
-    camera overhead = new_camera(0,-16,0,0,1,0,0.5);
+    camera straight = new_camera(0,0,-5,0,0,1,80,80);
+    camera side = new_camera(5,0,0,-1,0,0,80,80);
+    camera overhead = new_camera(0,-16,0,0,1,0,90,90);
 
     object objs[4];
 
@@ -165,7 +182,7 @@ int main(int argc, char **argv) {
     //bigger_test(&scene);
     reflecto_test(&scene);
 
-    render_scene(image, &scene, w,h, overhead);
+    render_scene(image, &scene, w,h, side);
     pixel pimage[w*h];
 
     for (int i = 0; i < w*h; i++) {
