@@ -33,6 +33,14 @@ inline vec3 proj(vec3 x, vec3 y) {
     return scale(a, x);
 }
 
+inline vec3 cross(vec3 x, vec3 y) {
+    return (vec3) {
+        .x = x.y * y.z - x.z * y.y,
+        .y = x.z * y.x - x.x * y.z,
+        .z = x.x * y.y - x.y * y.x,
+    };
+}
+
 void vec_str(char* buf, vec3 a) {
     sprintf(buf, "[%f %f %f]", a.x, a.y, a.z);
 }

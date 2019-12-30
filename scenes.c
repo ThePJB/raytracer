@@ -22,7 +22,7 @@ void reflecto_test(scene* scene) {
         .reflectance=1,
         .sphere = (sphere) {
             .center = (vec3) {0,3, 0},
-            .radius = 1,
+            .radius = 2,
         }
     };
 

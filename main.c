@@ -10,6 +10,7 @@
 #include "shapes.h"
 #include "vec.h"
 #include "scenes.h"
+#include "camera.h"
 
 #include <stdbool.h>
 
@@ -26,30 +27,16 @@
 
 // view plane adds x and y but it should actually be adding orthogonal vectors
 
+// swap i think that its hard to have rules because you can say swap z and y, but what if you just orient camera another day.
+// maybe need to just do it another way like come up with transformation matrix
+
 // features:
 // multiple cameras
 // generate camera looking at something
 
 
 
-typedef struct {
-    vec3 pos;
-    vec3 dir;
-    double aov_horz;
-    double aov_vert;
-} camera;
-
 // todo maybe roll
-
-
-camera new_camera(double x,double y,double z, double u, double v, double w, double ah, double av) {
-    return (camera) {
-        .pos = (vec3) {.x = x, .y = y, .z = z},
-        .dir = make_unit((vec3) {.x = u, .y = v, .z = w}),
-        .aov_horz = ah,
-        .aov_vert = av,
-    };
-}
 
 
 const int MAX_DEPTH = 15;
@@ -95,70 +82,13 @@ vec3 cast_ray(scene* scene, ray r, int depth) {
 
 void render_scene(vec3* image, scene* scene, int w, int h, camera cam) {
 
-    // first relationship between angle and
-    double wrange, hrange;
-
-    wrange = 2 * tan(DEG_TO_RAD * cam.aov_horz / 2);
-    hrange = 2 * tan(DEG_TO_RAD * cam.aov_vert / 2);
-
-    double focal_length = 1;
-
-    // angle relationship goes here
-    vec3 view_plane_pos = axpy(focal_length, cam.dir, cam.pos);
-
-    // now get direction from camera_pos to all of the imaginary pixels on the view plane
-    char campos[128];
-    char camdir[128];
-    char sstr[128];
-
-    vec_str(campos, cam.pos);
-    vec_str(camdir, cam.dir);
-
-    object_str(sstr, scene->objects[0]);
-
-    //printf("Rendering scene, campos %s, camdir %s, focal len %f, contains sphere %s\n", campos, camdir, focal_length, sstr);
-    
-    // this is kinda 1 pixel offset but you wouldnt really be able to tell at higher resolutions lol
-    
-    // find these with gram schmidt??
-    // or do some cross product shit?
-    // transformation required to get that direction vector, then apply it to x and y as well
-    vec3 u,v;
-
-    // what happesn to an axis vector: ok
-    // what happens to a 45 degree guy? +x +z
-    // i think this is legit
-
-    // todo view angles
-
-    u.x = cam.dir.z;
-    u.z = -cam.dir.x;
-
-    v.y = cam.dir.z;
-    v.z = -cam.dir.y;
-
     int i = 0;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            vec3 uo = scale(wrange * (-0.5 + x/(double)w), u);
-            vec3 vo = scale(hrange * (-0.5 + y/(double)h), v);
 
-            vec3 v = view_plane_pos;
-            v = axpy(1,v, uo);
-            v = axpy(1,v, vo);
+            ray ray = get_pixel_ray(cam, x, w, y, h);
 
-            vec3 dir = sub(v, cam.pos);
-            dir = make_unit(dir);
-
-            ray ray = {.origin = cam.pos, .direction = dir};
             image[i] = cast_ray(scene, ray, 0);
-            
-            char buf[128];
-            char vbuf[128];
-            ray_str(buf, ray);
-            vec_str(vbuf, image[i]);
-
-            //printf("cast ray %s, found colour %s\n", buf, vbuf);        
 
             i += 1;
         }
@@ -166,23 +96,36 @@ void render_scene(vec3* image, scene* scene, int w, int h, camera cam) {
 }
 
 int main(int argc, char **argv) {
+    test_camera();
+
     int w = 250;
     int h = 250;
     // program bails if I increase this any further, VLA maximum??
 
     vec3 image[w*h];
 
-    camera straight = new_camera(0,0,-5,0,0,1,80,80);
-    camera side = new_camera(5,0,0,-1,0,0,80,80);
-    camera overhead = new_camera(0,-16,0,0,1,0,90,90);
+    camera straight, side, overhead;
 
-    object objs[4];
+    make_camera(&straight, (vec3) {0, 0, -5},
+        (vec3) {0, 0, 1},
+        (vec3) {0, -1, 0},
+        80, 80);
+
+    make_camera(&side, (vec3) {5, 0, 0},
+        (vec3) {-1, 0, 0},
+        (vec3) {0, -1, 0},
+        80, 80);
+
+    make_camera(&overhead, (vec3) {0, -16, 0},
+        (vec3) {0, 1, 0},
+        (vec3) {0, 0, 1},
+        80, 80);
 
     scene scene;
     //bigger_test(&scene);
     reflecto_test(&scene);
 
-    render_scene(image, &scene, w,h, side);
+    render_scene(image, &scene, w,h, overhead);
     pixel pimage[w*h];
 
     for (int i = 0; i < w*h; i++) {
