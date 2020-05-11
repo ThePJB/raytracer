@@ -1,1 +1,1 @@
-gcc main.c write_image.c vec.c shapes.c scenes.c camera.c -std=c11 -lopenblas -lpng -o raytracer.exe
+gcc core/src/main.c lib/src/write_image.c lib/src/vec.c core/src/object.c scenes/src/scenes.c core/src/camera.c -std=c11 -lopenblas -lpng -lm -Icore/inc -Ilib/inc -Iscenes/inc -o raytracer
