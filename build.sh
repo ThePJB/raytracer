@@ -1,1 +1,3 @@
-gcc core/src/main.c lib/src/write_image.c lib/src/vec.c core/src/object.c scenes/src/scenes.c core/src/camera.c -std=c11 -lopenblas -lpng -lm -Icore/inc -Ilib/inc -Iscenes/inc -o raytracer
+#!/bin/sh
+
+gcc -o raytracer geometry.c main.c scene.c write_image.c linmath.c mesh_primitives.c load_obj.c -lm -lpng -Wall -Wno-missing-braces -Wno-unused-variable -pedantic -Wno-unused-but-set-variable

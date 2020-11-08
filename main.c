@@ -1,138 +1,303 @@
-#include <stdio.h>
-#include "png.h"
-#include "write_image.h"
-#include <unistd.h>
-#include <stdlib.h>
+#include "scene.h"
+#include "linmath.h"
+#include "geometry.h"
+#include "mesh_primitives.h"
+#include "load_obj.h"
+
 #include <string.h>
-#include <stdarg.h>
-#include <math.h>
+#include <stdio.h>
 
-#include "shapes.h"
-#include "vec.h"
-#include "scenes.h"
-#include "camera.h"
+#define XRES 1280
+#define YRES 960
 
-#include <stdbool.h>
-
-#define PNG_DEBUG 3
-#include <png.h>
-
-#define M_PI 3.14159265358979323846
-#define DEG_TO_RAD 0.01745329251994329577
-
-// bugs:
-// reflective plane always reflects itself?
-// reflective plane weird reflections on the horizon
-// from directly above normal plane is cooked
-
-// view plane adds x and y but it should actually be adding orthogonal vectors
-
-// swap i think that its hard to have rules because you can say swap z and y, but what if you just orient camera another day.
-// maybe need to just do it another way like come up with transformation matrix
-
-// features:
-// multiple cameras
-// generate camera looking at something
-
-
-
-// todo maybe roll
-
-
-const int MAX_DEPTH = 15;
-
-// returns the colour it sees
-vec3 cast_ray(scene* scene, ray r, int depth) {
-    if (depth > MAX_DEPTH) {
-        return (vec3) {1, 1, 1};
-    }
-
-    int closest = -1;
-    double closest_dist = 1.0/0.0;
-    vec3 closest_normal;
-    vec3 closest_position;
-
-    for (int i = 0; i < scene->numObjects; i++) {
-        double distance;
-        vec3 normal;
-        vec3 position;
-        if (ray_intersects_object(&normal, &position, &distance, r, scene->objects[i])) {
-            if (distance < closest_dist) {
-                closest = i;
-                closest_dist = distance;
-                closest_normal = normal;
-                closest_position = position;
-            }
-        }
-    }
-
-    if (closest == -1) {
-        return scene->bg_colour;
-    }
-    vec3 normal_colour =  scale(0.5,axpy(1, closest_normal, (vec3) {1,1,1}));
-
-    return normal_colour; // normal map
-
-    if (scene->objects[closest].reflectance > 0) {
-        ray reflected_ray = ray_reflect(r, closest_position, closest_normal);
-        return cast_ray(scene, reflected_ray, depth+1);
-    }
-    return scene->objects[closest].colour;
-}
-
-void render_scene(vec3* image, scene* scene, int w, int h, camera cam) {
-
-    int i = 0;
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-
-            ray ray = get_pixel_ray(cam, x, w, y, h);
-
-            image[i] = cast_ray(scene, ray, 0);
-
-            i += 1;
-        }
-    }
-}
 
 int main(int argc, char **argv) {
-    test_camera();
 
-    int w = 250;
-    int h = 250;
-    // program bails if I increase this any further, VLA maximum??
+    // define a test scene
+    scene test_scene = {0};
+    test_scene.cameras[0] = cam_mat_lookat(
+        new_vec3(-1,0,3),
+        new_vec3(0,1,0),
+        new_vec3(0,0,-1)
+    );
+    // look directly right
+    test_scene.cameras[1] = cam_mat_lookat(
+        new_vec3(0,0,0),
+        new_vec3(0,1,0),
+        new_vec3(1,0,0)
+    );
+    test_scene.cameras[2] = cam_mat_lookat(
+        new_vec3(2,0, 1),
+        new_vec3(0,1,0),
+        new_vec3(1,0,-1)
+    );
 
-    vec3 image[w*h];
+    test_scene.objects[0] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {1,0,0},
+        .sphere = (sphere) {
+            .center = (vec3) {0,0,-1},
+            .radius = 0.3,
+        }
+    };    
+    test_scene.objects[1] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {0,1,0},
+        .sphere = (sphere) {
+            .center = (vec3) {1,0,-1},
+            .radius = 0.3,
+        }
+    };
+    test_scene.objects[2] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {0,0,1},
+        .sphere = (sphere) {
+            .center = (vec3) {0,1,-1},
+            .radius = 0.3,
+        }
+    };
+    test_scene.objects[3] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {1,0,1},
+        .sphere = (sphere) {
+            .center = (vec3) {0,0,-3},
+            .radius = 1.0,
+        }
+    };
 
-    camera straight, side, overhead;
+    test_scene.objects[4] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {0,1,1},
+        .sphere = (sphere) {
+            .center = (vec3) {2,0,-1},
+            .radius = 0.3,
+        }
+    };
 
-    make_camera(&straight, (vec3) {0, 0, -5},
-        (vec3) {0, 0, 1},
-        (vec3) {0, -1, 0},
-        80, 80);
+    test_scene.objects[5] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {1,1,1},
+        .sphere = (sphere) {
+            .center = (vec3) {3,0,-1},
+            .radius = 0.3,
+        }
+    };
 
-    make_camera(&side, (vec3) {5, 0, 0},
-        (vec3) {-1, 0, 0},
-        (vec3) {0, -1, 0},
-        80, 80);
+    test_scene.lights[0] = (point_light) {
+        .pos = (vec3) {0, 5, 0},
+        .colour = (vec3) {1, 0.95, 0.8}, // nice and warm
+        .intensity = 1, // idk sure
+    };
 
-    make_camera(&overhead, (vec3) {0, -16, 0},
-        (vec3) {0, 1, 0},
-        (vec3) {0, 0, 1},
-        80, 80);
 
-    scene scene;
-    //bigger_test(&scene);
-    reflecto_test(&scene);
 
-    render_scene(image, &scene, w,h, overhead);
-    pixel pimage[w*h];
 
-    for (int i = 0; i < w*h; i++) {
-        pimage[i].r = (unsigned char) (255*image[i].x);
-        pimage[i].g = (unsigned char) (255*image[i].y);
-        pimage[i].b = (unsigned char) (255*image[i].z);
-    }
-    write_image(w,h,(unsigned char*)pimage, "out.png");
+
+
+
+
+
+    scene light_test_scene = {0};
+    light_test_scene.cameras[0] = cam_mat_lookat(
+        (vec3){0,0,3},
+        (vec3){0,1,0},
+        (vec3){0,0,-1}
+    );
+
+
+    light_test_scene.objects[0] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {1, 0, 0.2},
+        .sphere = (sphere) {
+            .center = (vec3) {0, 1, -1},
+            .radius = 0.8,
+        }
+    };
+
+    light_test_scene.objects[1] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = (vec3) {0.2, 0, 1},
+        .sphere = (sphere) {
+            .center = (vec3) {0, -1, -1},
+            .radius = 0.8,
+        }
+    };
+
+/*
+    light_test_scene.objects[0] = (object) {
+        .tag = OBJ_TRIANGLE,
+        .colour = (vec3) {1, 0, 0.2},
+        .triangle = (triangle) {
+            .vert = {
+                {0, 1, 1},
+                {0, 1, -1},
+                {0, -1, -1},
+            }
+        }
+    };
+*/
+    // red light on the right
+    light_test_scene.lights[0] = (point_light) {
+        .pos = (vec3) {3, 0, -1},
+        .colour = (vec3) {1, 0, 0},
+        .intensity = 20,
+    };
+
+    // blue light on the left
+    light_test_scene.lights[1] = (point_light) {
+        .pos = (vec3) {-3, 0, -1},
+        .colour = (vec3) {0, 0, 1},
+        .intensity = 20,
+    };
+
+    scene triangle_scene = {0};
+    triangle_scene.cameras[0] = cam_mat_lookat(
+        (vec3){0,0,5},
+        (vec3){0,1,0},
+        (vec3){0,0,-1}
+    );
+
+    triangle_scene.objects[0] = (object) {
+        .tag = OBJ_TRIANGLE,
+        .colour = (vec3) {1, 0.2, 0.5},
+        .triangle = (triangle) {
+            .vert = {
+                {-1.0001,1,-2},
+                {0.001,0,-1},
+                {-1.001,0,-1},
+            }
+        }
+    };
+
+    triangle_scene.objects[1] = (object) {
+        .tag = OBJ_TRIANGLE,
+        .colour = (vec3) {0.2, 1, 0.5},
+        .triangle = (triangle) {
+            .vert = {
+                {1,0,-1},
+                {0,1,-2},
+                {0,0,-1},
+            }
+        }
+    };
+
+    scene cube_scene = {0};
+    cube_scene.cameras[0] = cam_mat_lookat(
+        (vec3){-3,3,6},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );    
+    cube_scene.cameras[1] = cam_mat_lookat(
+        (vec3){-2,-2,-4},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );
+    cube_scene.objects[0] = make_cube((vec3){1,0.2,1}, transformation_mat(-1,-1,-1,45,45,45,2));
+    
+    cube_scene.objects[1] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = {1,1,1},
+        .sphere = {
+            .center = (vec3) {5, 0, 0},
+            .radius = 2,
+        },
+    };
+
+    scene teapot_scene = {0};
+    teapot_scene.cameras[0] = cam_mat_lookat(
+        (vec3){0,5,5},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );
+    teapot_scene.objects[0] = (object) {
+        .tag = OBJ_MESH,
+        .colour = {1,1,1},
+        .mesh = load_obj("teapot.obj")
+    };
+
+    scene ls2 = {0};
+    ls2.cameras[0] = cam_mat_lookat(
+        (vec3){0,5,10},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );
+    ls2.cameras[1] = cam_mat_lookat(
+        (vec3){-6,3,10},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );
+    ls2.cameras[2] = cam_mat_lookat(
+        (vec3){-6,3,-10},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );    
+    ls2.cameras[3] = cam_mat_lookat(
+        (vec3){-6,3,-10},
+        (vec3){0,1,0},
+        (vec3){0,0,0}
+    );
+
+    // ground
+    ls2.objects[0] = (object) {
+        .tag = OBJ_TRIANGLE,
+        .colour = {0.7,0.7,0.7},
+        .triangle = {
+            .vert = {
+                (vec3){-10,0,-10},
+                (vec3){10,0,10},
+                (vec3){10,0,-10},
+            }
+        }
+    };
+    ls2.objects[1] = (object) {
+        .tag = OBJ_TRIANGLE,
+        .colour = {0.7,0.7,0.7},
+        .triangle = {
+            .vert = {
+                (vec3){-10,0,-10},
+                (vec3){10,0,10},
+                (vec3){-10,0,10},
+            }
+        }
+    };
+    ls2.objects[2] = (object) {
+        .tag = OBJ_SPHERE,
+        .colour = {0.7,0.7,0.7},
+        .sphere = {
+            .center = (vec3){0,2,6},
+            .radius = 1,
+        }
+    };
+    ls2.objects[3] = make_cube((vec3){0.7,0.1,0.1}, transformation_mat(-3, 1, 2.5, 0, 45, 0, 1));
+    ls2.objects[4] = make_cube((vec3){0.1,0.1,0.7}, transformation_mat(3, 1, -4, 0, -20, 0, 1));
+    ls2.lights[0] = (point_light) {
+        .pos = (vec3){-10, 10, 10},
+        .colour = {1, 0.8, 0.7},
+        .intensity = 50,
+    };
+    ls2.lights[1] = (point_light) {
+        .pos = (vec3){10, 8, 10},
+        .colour = {0.7, 0.8, 1},
+        .intensity = 45,
+    };
+
+    //render_scene(&teapot_scene, "teapot.png", XRES, YRES, 0, 70, 4./3, SHADING_GOOCH);
+
+    //render_scene(&triangle_scene, "tri.png", XRES, YRES, 0, 70, 4./3, SHADING_GOOCH);
+    //render_scene(&cube_scene, "cube1.png", XRES, YRES, 0, 70, 4./3, SHADING_GOOCH);
+    //render_scene(&cube_scene, "cube2.png", XRES, YRES, 1, 70, 4./3, SHADING_GOOCH);
+    
+    //render_scene(&test_scene, "cam1normal.png",  XRES, YRES, 0, 70, 4./3, SHADING_NORMALS);
+    //render_scene(&test_scene, "cam1gooch.png",   XRES, YRES, 0, 70, 4./3, SHADING_GOOCH);
+    //render_scene(&test_scene, "out2.png", XRES, YRES, 1, 80, 4./3, 0.001, 100);
+    //render_scene(&test_scene, "out3.png", XRES, YRES, 2, 80, 4./3, 0.001, 100);
+    
+    //render_scene(&light_test_scene, "lightsa.png", XRES, YRES, 0, 80, 4./3, SHADING_AMBIENT);
+    //render_scene(&light_test_scene, "lights.png", XRES, YRES, 0, 80, 4./3, SHADING_LIGHTS);
+    
+    render_scene(&ls2, "ls21e.png", XRES, YRES, 0, 60, 4./3, SHADING_LIGHTS);
+    render_scene(&ls2, "ls22e.png", XRES, YRES, 0, 60, 4./3, SHADING_GOOCH);
+    render_scene(&ls2, "ls23e'.png", XRES, YRES, 1, 60, 4./3, SHADING_LIGHTS);
+    render_scene(&ls2, "ls24e.png", XRES, YRES, 2, 60, 4./3, SHADING_LIGHTS);
+    render_scene(&ls2, "ls25e.png", XRES, YRES, 2, 60, 4./3, SHADING_GOOCH);
 }
-
